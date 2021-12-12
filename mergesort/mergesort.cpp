@@ -7,24 +7,41 @@
 #include "omploop.hpp"
 
 #include <chrono>
+#include <vector>
+#include <algorithm>
 
 #ifdef cplusplus
 extern "C" {
 #endif
-
   void generateMergeSortData (int* arr, size_t n);
-  void checkMergeSortResult (const int* arr, size_t n);
-
+  void checkMergeSortResult (int* arr, size_t n);
 #ifdef cplusplus
 }
 #endif
+
+void merge(int start, int mid, int end, int arr[]){
+
+  std::vector<int> temp;
+  int m1 = start, m2 = mid + 1;
+
+  while(m1 <= mid && m2 <= end) {
+    if (arr[m1] < arr[m2]) temp.push_back(arr[m1++]);
+    else temp.push_back(arr[m2++]);
+  }
+
+  while (m1 <= mid) temp.push_back(arr[m1++]);
+
+  for(int i = start, j = 0; j < temp.size(); i++, j++) {
+    arr[i] = temp[j];
+  }
+}
 
 int main (int argc, char* argv[]) {
 
   // start timer
   auto start = std::chrono::system_clock::now();
 
-  if (argc < 3) { std::cerr<<"usage: "<<argv[0]<<" <n> <nbthreads>"<<std::endl;
+  if (argc < 3) { std::cerr<<"Usage: "<<argv[0]<<" <n> <nbthreads>"<<std::endl;
     return -1;
   }
 
@@ -36,31 +53,20 @@ int main (int argc, char* argv[]) {
 
   //insert sorting code here.
   OmpLoop o1;
-
   o1.setNbThread(atoi(argv[2]));
 
-  //printArr(std::ref(arr), n);
-
-  for (int i = 0; i < n; i++) {
-
-    int first = i % 2;
-
+  for (int batch = 1; batch < n; batch = 2 * batch){
     o1.parfor<int>(
-      first, n - 1, 2,
-      [&](int (& tls)){
-        tls = 0;
+      0, n, 2 * batch,
+      [&](int & tls){},
+      [&](int i, int & tls){
+        int mid = std::min(i + batch - 1, n - 1);
+        int end = std::min(i + 2 * batch - 1, n - 1);
+        merge(i, mid, end, std::ref(arr));
       },
-      [&](int i, int (& tls)){
-        if(arr[i] > arr[i + 1])
-          std::swap(arr[i] , arr[i + 1]);
-      },
-      [&](int (& tls)){
-        tls++;
-      }
+      [&](int & tls){}
     );
   }
-
-  //printArr(std::ref(arr), n);
 
   checkMergeSortResult (arr, n);
 
